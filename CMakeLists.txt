@@ -16,14 +16,20 @@ endif()
 
 add_library(gcc_nop_plugin SHARED src/plugin.cpp)
 target_include_directories(gcc_nop_plugin SYSTEM PRIVATE "${GCCPLUGINS_DIR}/include")
-target_compile_options(gcc_nop_plugin PRIVATE -Wall -Wextra -pedantic -Werror -fno-rtti -O3)
+target_compile_options(gcc_nop_plugin PRIVATE -Wall -Wextra -pedantic -Werror -fno-rtti -g -O3)
 # CMake 3.13: target_link_options
 if(APPLE)
     target_link_libraries(gcc_nop_plugin PRIVATE -Wl,-undefined,dynamic_lookup)
 endif()
+set(PLUGIN $<TARGET_FILE_NAME:gcc_nop_plugin>)
 
-add_executable(hello EXCLUDE_FROM_ALL test/hello.cpp)
-target_compile_options(hello PRIVATE -fplugin=$<TARGET_FILE:gcc_nop_plugin>)
-add_dependencies(hello gcc_nop_plugin)
-add_custom_target(check)
-add_dependencies(check hello)
+set(HELLO_CPP test/hello.cpp)
+set(HELLO_EXE test/hello${CMAKE_EXECUTABLE_SUFFIX})
+add_custom_command(
+        OUTPUT ${HELLO_EXE}
+        COMMAND ${CMAKE_CXX_COMPILER} -o ${HELLO_EXE} -fplugin=${PLUGIN} -fplugin-arg-${PLUGIN}-_main=2 ${HELLO_CPP}
+        DEPENDS gcc_nop_plugin
+        IMPLICIT_DEPENDS CXX ${HELLO_CPP})
+add_custom_target(
+        check
+        DEPENDS ${HELLO_EXE})

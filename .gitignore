@@ -1,10 +1,10 @@
+*.cbp
 *.dSYM/
+*.dylib
 .idea/
 CMakeCache.txt
 CMakeFiles/
 Makefile
 cmake-build-debug/
 cmake_install.cmake
-gcc_nop_plugin.cbp
-hello
-libgcc_nop_plugin.dylib
+test/hello
