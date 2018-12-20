@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 project(gcc_nop_plugin)
 
-set(CMAKE_CXX_STANDARD 98)
+set(CMAKE_CXX_STANDARD 11)
 
 execute_process(
         COMMAND ${CMAKE_CXX_COMPILER} -print-file-name=plugin

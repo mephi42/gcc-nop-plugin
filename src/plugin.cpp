@@ -8,6 +8,7 @@
 #include <context.h>
 #include <diagnostic-core.h>
 #include <tree.h>
+#include <rtl.h>
 
 namespace {
 
@@ -18,24 +19,29 @@ public:
             struct plugin_name_args *plugin_info) :
       rtl_opt_pass (data, ctxt)
   {
-    int i;
-
-    for (i = 0; i < plugin_info->argc; i++)
+    for (int i = 0; i < plugin_info->argc; i++)
       m_config[plugin_info->argv[i].key] = atoi (plugin_info->argv[i].value);
   }
 
-  virtual unsigned int execute (function *fun)
+  unsigned int execute (function *fun) override
   {
-    Config::iterator it = m_config.find (function_name (fun));
+    auto it = m_config.find (function_name (fun));
     if (it == m_config.end ())
       return 0;
-    inform (DECL_SOURCE_LOCATION(fun->decl), "adding a %d-byte nop", it->second);
+    location_t locus = DECL_SOURCE_LOCATION(fun->decl);
+    inform (locus, "prepending a %d-byte nop", it->second);
+    char code[128];
+    snprintf (code, sizeof (code), ".fill %d,1,0x90\n", it->second);
+    auto rtx = gen_rtx_ASM_INPUT_loc (VOIDmode,
+                                      ggc_strdup (code),
+                                      locus);
+    MEM_VOLATILE_P (rtx) = 1;
+    emit_insn_at_entry (rtx);
     return 0;
   }
 
 private:
-  typedef std::map<std::string, int> Config;
-  Config m_config;
+  std::map<std::string, int> m_config;
 };
 
 const pass_data pass_data_nop =
@@ -59,17 +65,16 @@ int
 plugin_init (struct plugin_name_args *plugin_info,
              struct plugin_gcc_version *version)
 {
-  opt_pass *nop = new nop_pass (pass_data_nop, g, plugin_info);
-  struct register_pass_info info = {
-      nop, "final", 1, PASS_POS_INSERT_BEFORE
-  };
-
   if (!plugin_default_version_check (version, &gcc_version))
     {
       error ("gcc_nop_plugin is not compatible with your gcc");
       return 1;
     }
-  register_callback (
-      plugin_info->base_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &info);
+  auto nop = new nop_pass (pass_data_nop, g, plugin_info);
+  struct register_pass_info info = {
+      nop, "pro_and_epilogue", 1, PASS_POS_INSERT_AFTER
+  };
+  register_callback (plugin_info->base_name,
+                     PLUGIN_PASS_MANAGER_SETUP, nullptr, &info);
   return 0;
 }
