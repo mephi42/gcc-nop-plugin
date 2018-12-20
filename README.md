@@ -7,10 +7,10 @@ gcc plugin, which inserts nop instructions.
 ```
 g++ \
     -fplugin=libgcc_nop_plugin.dylib \
-    -fplugin-arg-libgcc_nop_plugin.dylib-_main=2 \
+    -fplugin-arg-libgcc_nop_plugin.dylib-main=2 \
     test/hello.cpp
 ```
 
 # Links
 
-* https://gcc.gnu.org/onlinedocs/gccint/Plugins.html
+* https://gcc.gnu.org/wiki/plugins

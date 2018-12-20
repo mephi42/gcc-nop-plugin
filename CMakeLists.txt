@@ -27,7 +27,7 @@ set(HELLO_CPP test/hello.cpp)
 set(HELLO_EXE test/hello${CMAKE_EXECUTABLE_SUFFIX})
 add_custom_command(
         OUTPUT ${HELLO_EXE}
-        COMMAND ${CMAKE_CXX_COMPILER} -o ${HELLO_EXE} -fplugin=${PLUGIN} -fplugin-arg-${PLUGIN}-_main=2 ${HELLO_CPP}
+        COMMAND ${CMAKE_CXX_COMPILER} -o ${HELLO_EXE} -fplugin=${PLUGIN} -fplugin-arg-${PLUGIN}-main=2 ${HELLO_CPP}
         DEPENDS gcc_nop_plugin
         IMPLICIT_DEPENDS CXX ${HELLO_CPP})
 add_custom_target(
