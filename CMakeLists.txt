@@ -18,25 +18,26 @@ else ()
     message(FATAL_ERROR "Could not find gcc plugin development files")
 endif ()
 
-add_library(gcc_nop_plugin SHARED src/plugin.cpp)
-target_include_directories(gcc_nop_plugin SYSTEM PRIVATE "${GCCPLUGINS_DIR}/include")
-target_compile_options(gcc_nop_plugin PRIVATE -Wall -Wextra -pedantic -Werror -fno-rtti -g -O3)
+set(TARGET gcc_nop_plugin${SUFFIX})
+add_library(${TARGET} SHARED src/plugin.cpp)
+target_include_directories(${TARGET} SYSTEM PRIVATE "${GCCPLUGINS_DIR}/include")
+target_compile_options(${TARGET} PRIVATE -Wall -Wextra -pedantic -Werror -fno-rtti -g -O3)
 if (APPLE)
     # CMake 3.13: target_link_options
-    target_link_libraries(gcc_nop_plugin PRIVATE -Wl,-undefined,dynamic_lookup)
+    target_link_libraries(${TARGET} PRIVATE -Wl,-undefined,dynamic_lookup)
 endif ()
-set(PLUGIN $<TARGET_FILE:gcc_nop_plugin>)
-set(PLUGIN_ID ${CMAKE_SHARED_LIBRARY_PREFIX}gcc_nop_plugin)
+set(PLUGIN $<TARGET_FILE:${TARGET}>)
+set(PLUGIN_ID ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET})
 if (APPLE)
     set(PLUGIN_ID ${PLUGIN_ID}${CMAKE_SHARED_LIBRARY_SUFFIX})
-endif()
+endif ()
 
 set(HELLO_C test/hello.c)
 set(HELLO_EXE test/hello${CMAKE_EXECUTABLE_SUFFIX})
 add_custom_command(
         OUTPUT ${HELLO_EXE}
         COMMAND ${CMAKE_TARGET_C_COMPILER} -o ${HELLO_EXE} -fplugin=${PLUGIN} -fplugin-arg-${PLUGIN_ID}-main=2 ${HELLO_C}
-        DEPENDS gcc_nop_plugin
+        DEPENDS ${TARGET}
         IMPLICIT_DEPENDS C ${HELLO_C})
 add_custom_target(
         check

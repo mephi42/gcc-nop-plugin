@@ -77,10 +77,8 @@ public:
     inform (locus, "prepending a %lu-byte nop", it->second);
     char code[128];
 #if defined(nop_pass_i386)
-    /* i386 */
     snprintf (code, sizeof (code), ".fill %lu,1,0x90\n", it->second);
 #elif defined(nop_pass_s390)
-    /* s390 */
     snprintf (code, sizeof (code), ".fill %lu,1,0x07\n", it->second);
 #else
 #error Unsupported architecture
