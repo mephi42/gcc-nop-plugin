@@ -1,6 +1,6 @@
+#include <memory>
 #include <map>
 #include <string>
-#include <utility>
 
 #include <gcc-plugin.h>
 #include <plugin-version.h>
@@ -10,28 +10,81 @@
 #include <tree.h>
 #include <rtl.h>
 
+#if defined(ix86_isa_flags)
+#define nop_pass_i386
+#elif defined(s390_arch_flags)
+#define nop_pass_s390
+#else
+#error Unsupported architecture
+#endif
+
 namespace {
+
+class nop_pass_config {
+public:
+  explicit nop_pass_config (std::map<std::string, unsigned long> nop_counts) :
+      m_nop_counts (std::move (nop_counts))
+  {
+  }
+
+  static std::unique_ptr<nop_pass_config>
+  parse (struct plugin_name_args *plugin_info)
+  {
+    std::map<std::string, unsigned long> nop_counts;
+    for (int i = 0; i < plugin_info->argc; i++)
+      {
+        char *str = plugin_info->argv[i].value;
+        char *endptr;
+        unsigned long count = std::strtoul (str, &endptr, 0);
+
+        if (*endptr)
+          {
+            error ("invalid nop size: %s", str);
+            return std::unique_ptr<nop_pass_config> ();
+          }
+#if defined(nop_pass_s390)
+        if (count & 1)
+          {
+            error ("invalid nop size: %s, s390 insns are even-sized", str);
+            return std::unique_ptr<nop_pass_config> ();
+          }
+#endif
+        nop_counts[plugin_info->argv[i].key] = count;
+      }
+    return std::unique_ptr<nop_pass_config> (
+        new nop_pass_config (std::move (nop_counts)));
+  }
+
+  const std::map<std::string, unsigned long> m_nop_counts;
+};
 
 class nop_pass : public rtl_opt_pass {
 public:
   nop_pass (const pass_data &data,
             gcc::context *ctxt,
-            struct plugin_name_args *plugin_info) :
-      rtl_opt_pass (data, ctxt)
+            std::unique_ptr<nop_pass_config> config) :
+      rtl_opt_pass (data, ctxt),
+      m_config (std::move (config))
   {
-    for (int i = 0; i < plugin_info->argc; i++)
-      m_config[plugin_info->argv[i].key] = atoi (plugin_info->argv[i].value);
   }
 
   unsigned int execute (function *fun) override
   {
-    auto it = m_config.find (function_name (fun));
-    if (it == m_config.end ())
+    auto it = m_config->m_nop_counts.find (function_name (fun));
+    if (it == m_config->m_nop_counts.end ())
       return 0;
     location_t locus = DECL_SOURCE_LOCATION(fun->decl);
-    inform (locus, "prepending a %d-byte nop", it->second);
+    inform (locus, "prepending a %lu-byte nop", it->second);
     char code[128];
-    snprintf (code, sizeof (code), ".fill %d,1,0x90\n", it->second);
+#if defined(nop_pass_i386)
+    /* i386 */
+    snprintf (code, sizeof (code), ".fill %lu,1,0x90\n", it->second);
+#elif defined(nop_pass_s390)
+    /* s390 */
+    snprintf (code, sizeof (code), ".fill %lu,1,0x07\n", it->second);
+#else
+#error Unsupported architecture
+#endif
     auto rtx = gen_rtx_ASM_INPUT_loc (VOIDmode,
                                       ggc_strdup (code),
                                       locus);
@@ -41,7 +94,7 @@ public:
   }
 
 private:
-  std::map<std::string, int> m_config;
+  std::unique_ptr<nop_pass_config> m_config;
 };
 
 const pass_data pass_data_nop =
@@ -70,7 +123,8 @@ plugin_init (struct plugin_name_args *plugin_info,
       error ("gcc_nop_plugin is not compatible with your gcc");
       return 1;
     }
-  auto nop = new nop_pass (pass_data_nop, g, plugin_info);
+  auto config = nop_pass_config::parse (plugin_info);
+  auto nop = new nop_pass (pass_data_nop, g, std::move (config));
   struct register_pass_info info = {
       nop, "pro_and_epilogue", 1, PASS_POS_INSERT_AFTER
   };
