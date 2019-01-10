@@ -5,10 +5,11 @@ gcc plugin, which inserts nop instructions.
 # Usage
 
 ```
-g++ \
-    -fplugin=libgcc_nop_plugin.dylib \
-    -fplugin-arg-libgcc_nop_plugin.dylib-main=2 \
-    test/hello.cpp
+gcc \
+    -o test/hello \
+    -fplugin=./libgcc_nop_plugin.so \
+    -fplugin-arg-libgcc_nop_plugin-main=2 \
+    test/hello.c
 ```
 
 # Links
