@@ -14,6 +14,8 @@
 #define nop_pass_i386
 #elif defined(s390_arch_flags)
 #define nop_pass_s390
+#elif defined(aarch64_isa_flags)
+#define nop_pass_aarch64
 #else
 #error Unsupported architecture
 #endif
@@ -48,6 +50,12 @@ public:
             error ("invalid nop size: %s, s390 insns are even-sized", str);
             return std::unique_ptr<nop_pass_config> ();
           }
+#elif defined(nop_pass_aarch64)
+        if (count & 3)
+          {
+            error ("invalid nop size: %s, aarch64 insns take 4 bytes", str);
+            return std::unique_ptr<nop_pass_config> ();
+          }
 #endif
         nop_counts[plugin_info->argv[i].key] = count;
       }
@@ -80,6 +88,9 @@ public:
     snprintf (code, sizeof (code), ".fill %lu,1,0x90\n", it->second);
 #elif defined(nop_pass_s390)
     snprintf (code, sizeof (code), ".fill %lu,1,0x07\n", it->second);
+#elif defined(nop_pass_aarch64)
+    snprintf (code, sizeof (code),
+              ".fill %lu,4,0xd503201f\n", it->second >> 2);
 #else
 #error Unsupported architecture
 #endif
