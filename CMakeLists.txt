@@ -1,7 +1,7 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 2.8)
 project(gcc_nop_plugin)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 if (NOT DEFINED CMAKE_TARGET_C_COMPILER)
     set(CMAKE_TARGET_C_COMPILER ${CMAKE_C_COMPILER})
