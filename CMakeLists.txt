@@ -36,9 +36,13 @@ set(HELLO_C test/hello.c)
 set(HELLO_EXE test/hello${CMAKE_EXECUTABLE_SUFFIX})
 add_custom_command(
         OUTPUT ${HELLO_EXE}
-        COMMAND ${CMAKE_TARGET_C_COMPILER} -o ${HELLO_EXE} -fplugin=${PLUGIN} -fplugin-arg-${PLUGIN_ID}-main=2 ${HELLO_C}
+        COMMAND ${CMAKE_TARGET_C_COMPILER} -o ${HELLO_EXE} -fplugin=${PLUGIN} -fplugin-arg-${PLUGIN_ID}-main=4 ${HELLO_C}
         DEPENDS ${TARGET}
         IMPLICIT_DEPENDS C ${HELLO_C})
 add_custom_target(
         check
         DEPENDS ${HELLO_EXE})
+
+add_custom_target(
+        fmt
+        COMMAND clang-format -i src/plugin.cpp)

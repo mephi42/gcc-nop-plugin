@@ -1,7 +1,8 @@
-#include <memory>
 #include <map>
+#include <memory>
 #include <string>
 
+/* clang-format off */
 #include <gcc-plugin.h>
 #include <plugin-version.h>
 #include <tree-pass.h>
@@ -9,6 +10,7 @@
 #include <diagnostic-core.h>
 #include <tree.h>
 #include <rtl.h>
+/* clang-format on */
 
 #if defined(ix86_isa_flags)
 #define nop_pass_i386
@@ -16,16 +18,20 @@
 #define nop_pass_s390
 #elif defined(aarch64_isa_flags)
 #define nop_pass_aarch64
+#elif defined(rs6000_isa_flags)
+#define nop_pass_ppc
 #else
 #error Unsupported architecture
 #endif
 
-namespace {
+namespace
+{
 
-class nop_pass_config {
+class nop_pass_config
+{
 public:
-  explicit nop_pass_config (std::map<std::string, unsigned long> nop_counts) :
-      m_nop_counts (std::move (nop_counts))
+  explicit nop_pass_config (std::map<std::string, unsigned long> nop_counts)
+      : m_nop_counts (std::move (nop_counts))
   {
   }
 
@@ -56,6 +62,12 @@ public:
             error ("invalid nop size: %s, aarch64 insns take 4 bytes", str);
             return std::unique_ptr<nop_pass_config> ();
           }
+#elif defined(nop_pass_ppc)
+        if (count & 3)
+          {
+            error ("invalid nop size: %s, ppc insns take 4 bytes", str);
+            return std::unique_ptr<nop_pass_config> ();
+          }
 #endif
         nop_counts[plugin_info->argv[i].key] = count;
       }
@@ -66,22 +78,22 @@ public:
   const std::map<std::string, unsigned long> m_nop_counts;
 };
 
-class nop_pass : public rtl_opt_pass {
+class nop_pass : public rtl_opt_pass
+{
 public:
-  nop_pass (const pass_data &data,
-            gcc::context *ctxt,
-            std::unique_ptr<nop_pass_config> config) :
-      rtl_opt_pass (data, ctxt),
-      m_config (std::move (config))
+  nop_pass (const pass_data &data, gcc::context *ctxt,
+            std::unique_ptr<nop_pass_config> config)
+      : rtl_opt_pass (data, ctxt), m_config (std::move (config))
   {
   }
 
-  unsigned int execute (function *fun) override
+  unsigned int
+  execute (function *fun) override
   {
     auto it = m_config->m_nop_counts.find (function_name (fun));
     if (it == m_config->m_nop_counts.end ())
       return 0;
-    location_t locus = DECL_SOURCE_LOCATION(fun->decl);
+    location_t locus = DECL_SOURCE_LOCATION (fun->decl);
     inform (locus, "prepending a %lu-byte nop", it->second);
     char code[128];
 #if defined(nop_pass_i386)
@@ -89,14 +101,15 @@ public:
 #elif defined(nop_pass_s390)
     snprintf (code, sizeof (code), ".fill %lu,1,0x07\n", it->second);
 #elif defined(nop_pass_aarch64)
-    snprintf (code, sizeof (code),
-              ".fill %lu,4,0xd503201f\n", it->second >> 2);
+    snprintf (code, sizeof (code), ".fill %lu,4,0xd503201f\n",
+              it->second >> 2);
+#elif defined(nop_pass_ppc)
+    snprintf (code, sizeof (code), ".fill %lu,4,0x60000000\n",
+              it->second >> 2);
 #else
 #error Unsupported architecture
 #endif
-    auto rtx = gen_rtx_ASM_INPUT_loc (VOIDmode,
-                                      ggc_strdup (code),
-                                      locus);
+    auto rtx = gen_rtx_ASM_INPUT_loc (VOIDmode, ggc_strdup (code), locus);
     MEM_VOLATILE_P (rtx) = 1;
     emit_insn_at_entry (rtx);
     return 0;
@@ -106,18 +119,17 @@ private:
   std::unique_ptr<nop_pass_config> m_config;
 };
 
-const pass_data pass_data_nop =
-    {
-        RTL_PASS, /* type */
-        "nop", /* name */
-        OPTGROUP_NONE, /* optinfo_flags */
-        TV_NONE, /* tv_id */
-        0, /* properties_required */
-        0, /* properties_provided */
-        0, /* properties_destroyed */
-        0, /* todo_flags_start */
-        0, /* todo_flags_finish */
-    };
+const pass_data pass_data_nop = {
+  RTL_PASS,      /* type */
+  "nop",         /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_NONE,       /* tv_id */
+  0,             /* properties_required */
+  0,             /* properties_provided */
+  0,             /* properties_destroyed */
+  0,             /* todo_flags_start */
+  0,             /* todo_flags_finish */
+};
 
 }
 
@@ -134,10 +146,9 @@ plugin_init (struct plugin_name_args *plugin_info,
     }
   auto config = nop_pass_config::parse (plugin_info);
   auto nop = new nop_pass (pass_data_nop, g, std::move (config));
-  struct register_pass_info info = {
-      nop, "pro_and_epilogue", 1, PASS_POS_INSERT_AFTER
-  };
-  register_callback (plugin_info->base_name,
-                     PLUGIN_PASS_MANAGER_SETUP, nullptr, &info);
+  struct register_pass_info info
+      = { nop, "pro_and_epilogue", 1, PASS_POS_INSERT_AFTER };
+  register_callback (plugin_info->base_name, PLUGIN_PASS_MANAGER_SETUP,
+                     nullptr, &info);
   return 0;
 }
